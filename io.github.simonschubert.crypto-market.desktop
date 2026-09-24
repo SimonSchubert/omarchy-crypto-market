@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Crypto Market
+GenericName=Crypto prices
+Comment=Coin prices, charts, watchlist and portfolio from CoinGecko
+Exec=omarchy-shell shell summon io.github.simonschubert.crypto-market
+Terminal=false
+StartupNotify=false
+Categories=Office;Finance;
+Keywords=crypto;bitcoin;coingecko;prices;portfolio;
