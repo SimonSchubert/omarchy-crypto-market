@@ -110,6 +110,30 @@ Item {
         }
       }
 
+      // On a phone the shell keeps this entry itself, in its app drawer.
+      SettingsSection {
+        visible: !root.app.compact
+        app: root.app
+        width: body.width
+        title: "App launcher"
+        note: "Crypto Market has an entry in Omarchy's app menu, so you can open it by name. The entry is the file ~/.local/share/applications/omarchy-plugin-io.github.simonschubert.crypto-market.desktop."
+        Row {
+          spacing: 6
+          Chip {
+            app: root.app
+            text: "Show"
+            selected: root.app.store.prefs.launcher !== false
+            onClicked: root.app.launcher.setShown(true)
+          }
+          Chip {
+            app: root.app
+            text: "Hide"
+            selected: root.app.store.prefs.launcher === false
+            onClicked: root.app.launcher.setShown(false)
+          }
+        }
+      }
+
       SettingsSection {
         app: root.app
         width: body.width

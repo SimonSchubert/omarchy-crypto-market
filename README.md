@@ -49,6 +49,10 @@ o.bind("SUPER + SHIFT + C", "Crypto Market", "omarchy-shell shell toggle io.gith
 Or run `omarchy-shell shell toggle io.github.simonschubert.crypto-market` from
 anywhere.
 
+The first time it loads, Crypto Market also adds itself to Omarchy's app menu,
+so you can search for it by name. It does this once, and only if no entry by
+that name exists yet. **Settings → App launcher** hides or shows the entry.
+
 On Omarchy Mobile it appears in the app drawer as its own app.
 
 ## Remove
@@ -58,11 +62,13 @@ omarchy plugin remove io.github.simonschubert.crypto-market
 ```
 
 That removes the plugin itself. Your settings, watchlist and portfolio stay in
-`~/.local/state/crypto-market/`, and the saved prices and logos stay in
-`~/.cache/crypto-market/`. To remove those as well:
+`~/.local/state/crypto-market/`, the saved prices and logos stay in
+`~/.cache/crypto-market/`, and the app menu entry stays in
+`~/.local/share/applications/`. To remove those as well:
 
 ```sh
 rm -rf ~/.local/state/crypto-market ~/.cache/crypto-market
+rm -f ~/.local/share/applications/omarchy-plugin-io.github.simonschubert.crypto-market.desktop
 ```
 
 If you added a keybinding, remove it from `~/.config/hypr/bindings.lua`.
@@ -71,7 +77,7 @@ If you added a keybinding, remove it from `~/.config/hypr/bindings.lua`.
 
 Omarchy with its Quickshell shell, and network access to `api.coingecko.com`.
 It installs no packages, runs no helper processes, and changes no Omarchy
-configuration: it only reads and writes its own files, listed below.
+configuration. It reads and writes only its own files, listed below.
 
 ## Keys (desktop)
 
@@ -100,10 +106,12 @@ and paste it into Settings. The key is stored in
 
 - The only network access is HTTPS requests from QML to `api.coingecko.com`,
   plus coin logos from CoinGecko's image CDN.
-- It runs no processes and no shell commands, and it writes nothing outside
-  its own two files:
+- It runs no processes and no shell commands. It writes only these files:
   - `~/.local/state/crypto-market/prefs.json`: settings, watchlist and portfolio
-  - `~/.cache/crypto-market/snapshot.json`: the last prices, for opening offline
+  - `~/.cache/crypto-market/`: the last prices, for opening offline, and the
+    coin logos
+  - `~/.local/share/applications/omarchy-plugin-io.github.simonschubert.crypto-market.desktop`:
+    its app menu entry, created once and never over an existing file
 - Project descriptions are shown as plain text. Links open in your browser,
   and only `https:` links are opened.
 

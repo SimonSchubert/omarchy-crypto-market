@@ -24,7 +24,9 @@ Item {
     refreshSec: 120,
     watchlist: ["bitcoin", "ethereum", "solana"],
     holdings: {},
-    lastTab: "markets"
+    lastTab: "markets",
+    launcher: true,
+    launcherAdded: false
   })
 
   property var prefs: defaults

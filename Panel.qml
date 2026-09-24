@@ -240,10 +240,17 @@ Item {
     dir: storeObj.cacheDir + "/logos"
   }
 
+  LauncherEntry {
+    id: launcherObj
+    app: root
+    pluginId: root.manifest && root.manifest.id ? root.manifest.id : "io.github.simonschubert.crypto-market"
+  }
+
   // Aliases for the views, which reach everything through `app`.
   readonly property alias store: storeObj
   readonly property alias gecko: geckoObj
   readonly property alias logos: logosObj
+  readonly property alias launcher: launcherObj
 
   Timer {
     interval: 15000
