@@ -138,13 +138,17 @@ Item {
     sheet.focusAmount()
   }
 
+  // One step out: the sheet, the page, the tab, then nothing. True when it
+  // stepped. On a phone the gesture bar calls this directly and hides the
+  // panel itself when it answers false, so at the root it must not also
+  // close; Escape from a keyboard closes there instead (see Keys below).
   function back() {
     resetFocus()
-    if (txOpen) { txOpen = false; return }
-    if (stack.length) { var s = stack.slice(); s.pop(); stack = s; return }
-    if (picking) { picking = false; tab = "portfolio"; return }
-    if (tab !== "markets") { setTab("markets"); return }
-    close()
+    if (txOpen) { txOpen = false; return true }
+    if (stack.length) { var s = stack.slice(); s.pop(); stack = s; return true }
+    if (picking) { picking = false; tab = "portfolio"; return true }
+    if (tab !== "markets") { setTab("markets"); return true }
+    return false
   }
 
   // Refresh what is on screen. Everything else waits until it is looked at.
@@ -299,7 +303,7 @@ Item {
             var list = v && v.list ? v.list : null
             var detail = detailLoader.item
             var k = event.key
-            if (k === Qt.Key_Escape || k === Qt.Key_Back) { root.back(); event.accepted = true; return }
+            if (k === Qt.Key_Escape || k === Qt.Key_Back) { if (!root.back()) root.close(); event.accepted = true; return }
             if (root.txOpen) return
             if (k === Qt.Key_Down && list) { event.accepted = list.move(1); return }
             if (k === Qt.Key_Up && list) { event.accepted = list.move(-1); return }
@@ -454,7 +458,7 @@ Item {
                   app: root
                   glyph: "󰁍"
                   label: "Back"
-                  onClicked: root.back()
+                  onClicked: if (!root.back()) root.close()
                 }
                 Text {
                   anchors.left: headerBack.visible ? headerBack.right : parent.left

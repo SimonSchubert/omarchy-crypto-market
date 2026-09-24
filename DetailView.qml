@@ -90,7 +90,7 @@ Item {
       app: root.app
       glyph: "󰁍"
       label: root.pane ? "Close coin" : "Back"
-      onClicked: root.app.back()
+      onClicked: if (!root.app.back()) root.app.close()
     }
     CoinLogo {
       id: headLogo
