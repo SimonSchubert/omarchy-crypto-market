@@ -1,5 +1,5 @@
 import QtQuick
-import "Api.js" as Api
+import "Api.mjs" as Api
 
 // One coin: price and chart, the figures CoinGecko puts beside them, what you
 // hold of it, a converter, and what the project says about itself.

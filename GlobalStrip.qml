@@ -1,5 +1,5 @@
 import QtQuick
-import "Api.js" as Api
+import "Api.mjs" as Api
 
 // The whole market in four figures, the line CoinGecko opens every page with.
 Item {

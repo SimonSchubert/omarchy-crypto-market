@@ -1,5 +1,5 @@
 import QtQuick
-import "Api.js" as Api
+import "Api.mjs" as Api
 
 // A buy or a sell, for the portfolio. Opens over whatever is on screen; on a
 // phone it rises from the bottom, on a desktop it floats in the middle.

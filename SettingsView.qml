@@ -1,5 +1,5 @@
 import QtQuick
-import "Api.js" as Api
+import "Api.mjs" as Api
 
 // Currency, how much to load and how often, and an optional CoinGecko key.
 Item {

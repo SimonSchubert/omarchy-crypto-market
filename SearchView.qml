@@ -1,5 +1,5 @@
 import QtQuick
-import "Api.js" as Api
+import "Api.mjs" as Api
 
 // Every coin CoinGecko lists, by name or ticker. Also how a coin is chosen
 // for a new portfolio entry, when `picking` is set.

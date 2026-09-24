@@ -2,7 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Wayland
 import qs.Commons
-import "Api.js" as Api
+import "Api.mjs" as Api
 
 // Crypto Market: CoinGecko's markets, coin pages, watchlist and a portfolio,
 // as one panel.
@@ -215,25 +215,25 @@ Item {
       if (["markets", "watchlist", "discover", "portfolio"].indexOf(t) >= 0) root.tab = t
       root.refresh(false)
     }
-    onSnapshotLoaded: function (entries) { geckoObj.restore(entries) }
+    onSnapshotLoaded: function (text) { geckoObj.restoreText(text) }
   }
 
   Gecko {
     id: geckoObj
     apiKey: storeObj.apiKey
     currency: storeObj.currency
-    onChanged: if (root.opened) snapshotTimer.restart()
+  }
+
+  LogoCache {
+    id: logosObj
+    app: root
+    dir: storeObj.cacheDir + "/logos"
   }
 
   // Aliases for the views, which reach everything through `app`.
   readonly property alias store: storeObj
   readonly property alias gecko: geckoObj
-
-  Timer {
-    id: snapshotTimer
-    interval: 5000
-    onTriggered: store.saveSnapshot(gecko.snapshot(["markets", "global", "trending", "categories"], 8))
-  }
+  readonly property alias logos: logosObj
 
   Timer {
     interval: 15000
@@ -243,6 +243,8 @@ Item {
   }
 
   onCurrencyChanged: Qt.callLater(function () { root.refresh(false) })
+  // Written when the app closes, not while it is in use: the stringify of a
+  // few hundred kilobytes is a hitch nobody should feel mid-scroll.
   onOpenedChanged: if (!opened) store.saveSnapshot(gecko.snapshot(["markets", "global", "trending", "categories"], 8))
 
   // ------------------------------------------------------------ window

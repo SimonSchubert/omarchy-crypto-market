@@ -1,5 +1,5 @@
 import QtQuick
-import "Api.js" as Api
+import "Api.mjs" as Api
 
 // What you own, what it is worth now, and how that compares with what you
 // paid. Prices for every holding come in one request.

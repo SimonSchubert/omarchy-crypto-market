@@ -1,5 +1,5 @@
 import QtQuick
-import "Api.js" as Api
+import "Api.mjs" as Api
 
 // The top N coins by market cap, CoinGecko's front page. Also the page a
 // category opens into, with the category in the query and no global strip.

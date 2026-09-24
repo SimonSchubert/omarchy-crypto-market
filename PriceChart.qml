@@ -1,5 +1,5 @@
 import QtQuick
-import "Api.js" as Api
+import "Api.mjs" as Api
 
 // A coin's price over a range, filled under the line, with a crosshair that
 // follows the pointer on a desktop and the finger on a phone.

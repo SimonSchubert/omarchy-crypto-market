@@ -1,5 +1,5 @@
 import QtQuick
-import "Api.js" as Api
+import "Api.mjs" as Api
 
 // Coin to money and back. Whichever side was typed in last is the one kept
 // when the price moves.

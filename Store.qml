@@ -1,7 +1,7 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
-import "Api.js" as Api
+import "Api.mjs" as Api
 
 // What the app remembers: preferences, the watchlist and the portfolio in
 // ~/.local/state, and the last prices it saw in ~/.cache so the first screen
@@ -37,7 +37,8 @@ Item {
   readonly property var watchlist: Array.isArray(prefs.watchlist) ? prefs.watchlist : []
   readonly property var holdings: prefs.holdings && typeof prefs.holdings === "object" ? prefs.holdings : ({})
 
-  signal snapshotLoaded(var entries)
+  // The saved snapshot as text; Gecko parses it on its worker thread.
+  signal snapshotLoaded(string text)
 
   function set(key, value) {
     var s = Object.assign({}, prefs)
@@ -111,11 +112,6 @@ Item {
     path: root.cacheDir + "/snapshot.json"
     atomicWrites: true
     printErrors: false
-    onLoaded: {
-      try {
-        var s = JSON.parse(text())
-        if (s && s.version === 1 && s.entries) root.snapshotLoaded(s.entries)
-      } catch (e) {}
-    }
+    onLoaded: root.snapshotLoaded(text())
   }
 }

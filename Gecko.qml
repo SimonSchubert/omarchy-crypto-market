@@ -1,5 +1,5 @@
 import QtQuick
-import "Api.js" as Api
+import "Api.mjs" as Api
 
 // Every request to CoinGecko goes through here, one at a time.
 //
@@ -36,6 +36,8 @@ Item {
   property var cache: ({})     // url -> { t, data }
   property var failures: ({})  // url -> { t, message }
   property var queue: []       // [{ url, kind, cur }]
+  property var parsing: ({})   // url -> true while the worker shapes it
+  property var outbox: []      // messages for a worker still loading
   property string inflight: ""
   property real lastSent: 0
   property var xhr: null
@@ -59,7 +61,7 @@ Item {
   }
 
   function busy(url) {
-    if (inflight === url) return true
+    if (inflight === url || parsing[url]) return true
     for (var i = 0; i < queue.length; i++) if (queue[i].url === url) return true
     return false
   }
@@ -117,6 +119,12 @@ Item {
     touch()
   }
 
+  // The saved snapshot's text, parsed on the worker; restore() takes it from
+  // there.
+  function restoreText(text) {
+    if (text) post({ op: "parse", text: text })
+  }
+
   // Seed from the snapshot saved last time, keeping each entry's age so it is
   // shown at once and refreshed as soon as it is due.
   function restore(entries) {
@@ -145,42 +153,45 @@ Item {
     send(job)
   }
 
+  // The app's only HTTP request, for the API and for logos alike. `binary`
+  // answers with an ArrayBuffer instead of text. done(status, body, req).
+  function get(url, headers, binary, done) {
+    var req = new XMLHttpRequest()
+    if (binary) req.responseType = "arraybuffer"
+    req.onreadystatechange = function () {
+      if (req.readyState === 4) done(req.status, binary ? req.response : req.responseText, req)
+    }
+    req.open("GET", url)
+    for (var h in headers) req.setRequestHeader(h, headers[h])
+    req.send()
+    return req
+  }
+
   function send(job) {
     inflight = job.url
     lastSent = Date.now()
     touch()
-    var req = new XMLHttpRequest()
-    xhr = req
-    req.onreadystatechange = function () {
-      if (req.readyState !== 4 || xhr !== req) return
+    var headers = { "Accept": "application/json" }
+    if (apiKey) headers["x-cg-demo-api-key"] = apiKey
+    var req = get(job.url, headers, false, function (status, body, r) {
+      if (xhr !== r) return
       timeout.stop()
       xhr = null
-      finish(job, req.status, req.responseText, req.getResponseHeader("retry-after"))
-    }
-    req.open("GET", job.url)
-    req.setRequestHeader("Accept", "application/json")
-    if (apiKey) req.setRequestHeader("x-cg-demo-api-key", apiKey)
+      finish(job, status, body, r.getResponseHeader("retry-after"))
+    })
+    xhr = req
     timeout.restart()
-    req.send()
   }
 
   function finish(job, status, body, retryAfter) {
     inflight = ""
     if (status === 200) {
-      var data = null
-      try { data = Api.shape(job.kind, JSON.parse(body), job.cur) } catch (e) { data = null }
-      if (data === null) {
-        fail(job, "CoinGecko sent something unreadable")
-      } else {
-        var c = cache
-        c[job.url] = { t: Date.now(), data: data, kind: job.kind }
-        prune(c)
-        cache = c
-        var f = failures
-        delete f[job.url]
-        failures = f
-        offline = false
-      }
+      // Shaped on the worker; the queue moves on meanwhile.
+      var p = parsing
+      p[job.url] = true
+      parsing = p
+      offline = false
+      post({ op: "shape", url: job.url, kind: job.kind, cur: job.cur, text: body })
     } else if (status === 429) {
       var secs = parseInt(retryAfter, 10)
       blockedUntil = Date.now() + (isFinite(secs) && secs > 0 ? Math.min(secs, 300) : 60) * 1000
@@ -202,6 +213,31 @@ Item {
     pump()
   }
 
+  // The worker loads its script asynchronously and drops whatever is sent
+  // before it is ready -- the snapshot, read at startup, arrived first.
+  function post(message) {
+    if (worker.ready) worker.sendMessage(message)
+    else outbox.push(message)
+  }
+
+  function shaped(url, kind, data) {
+    var p = parsing
+    delete p[url]
+    parsing = p
+    if (data === null) {
+      fail({ url: url }, "CoinGecko sent something unreadable")
+    } else {
+      var c = cache
+      c[url] = { t: Date.now(), data: data, kind: kind }
+      prune(c)
+      cache = c
+      var f = failures
+      delete f[url]
+      failures = f
+    }
+    touch()
+  }
+
   function fail(job, message) {
     var f = failures
     f[job.url] = { t: Date.now(), message: message }
@@ -214,6 +250,21 @@ Item {
     if (keys.length <= 60) return
     keys.sort(function (a, b) { return c[a].t - c[b].t })
     for (var i = 0; i < keys.length - 60; i++) delete c[keys[i]]
+  }
+
+  WorkerScript {
+    id: worker
+    source: "Worker.mjs"
+    onReadyChanged: {
+      if (!ready) return
+      var pending = root.outbox
+      root.outbox = []
+      for (var i = 0; i < pending.length; i++) worker.sendMessage(pending[i])
+    }
+    onMessage: function (m) {
+      if (m.op === "shaped") root.shaped(m.url, m.kind, m.data)
+      else if (m.op === "parsed" && m.entries) root.restore(m.entries)
+    }
   }
 
   Timer {

@@ -30,12 +30,15 @@ Item {
   Image {
     id: img
     anchors.fill: parent
-    source: root.source
+    // From the disk cache; "" while it is being fetched, which shows the
+    // initials.
+    source: root.app.logos ? (root.app.logos.revision, root.app.logos.source(root.source)) : root.source
     asynchronous: true
     cache: true
     smooth: true
-    mipmap: true
     fillMode: Image.PreserveAspectFit
+    onStatusChanged: if (status === Image.Error && String(source).indexOf("file:") === 0 && root.app.logos)
+      root.app.logos.invalidate(root.source)
     sourceSize.width: root.size * 2
     sourceSize.height: root.size * 2
   }

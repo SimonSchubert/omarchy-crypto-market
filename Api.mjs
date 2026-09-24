@@ -1,20 +1,19 @@
-.pragma library
-
 // Everything about CoinGecko that is not a request: where to ask, what to keep
-// of the answer, and how to print a number. Pure functions, one copy for every
-// delegate.
+// of the answer, and how to print a number. Pure functions. An ECMAScript
+// module rather than a `.pragma library` script so the worker thread that
+// shapes responses (Worker.mjs) imports the very same code the views do.
 //
 // Responses are copied field by field into plain objects rather than kept as
 // parsed. A coin page is ~60 KB of JSON of which the app shows a few hundred
 // bytes, and every string that reaches a Text item has passed through here.
 
-var BASE = "https://api.coingecko.com/api/v3"
+export var BASE = "https://api.coingecko.com/api/v3"
 
 // ------------------------------------------------------------ currencies
 
 // Curated rather than /simple/supported_vs_currencies: sixty codes nobody
 // scrolls through, and a symbol for each is the part that makes a price read.
-var CURRENCIES = [
+export var CURRENCIES = [
   { code: "usd", symbol: "$", name: "US Dollar" },
   { code: "eur", symbol: "€", name: "Euro" },
   { code: "gbp", symbol: "£", name: "British Pound" },
@@ -32,34 +31,34 @@ var CURRENCIES = [
   { code: "sats", symbol: "sats ", name: "Satoshi" }
 ]
 
-function currency(code) {
+export function currency(code) {
   for (var i = 0; i < CURRENCIES.length; i++)
     if (CURRENCIES[i].code === code) return CURRENCIES[i]
   return CURRENCIES[0]
 }
 
-function validCurrency(code) {
+export function validCurrency(code) {
   return currency(code).code === code
 }
 
 // ------------------------------------------------------------ endpoints
 
-function q(v) { return encodeURIComponent(String(v)) }
+export function q(v) { return encodeURIComponent(String(v)) }
 
 // A coin id is lowercase letters, digits and dashes. Anything else did not
 // come from CoinGecko and does not go into a URL path.
-function safeId(id) {
+export function safeId(id) {
   return /^[a-z0-9][a-z0-9-]{0,99}$/.test(String(id || "")) ? String(id) : ""
 }
 
-function marketsUrl(cur, page, perPage, category) {
+export function marketsUrl(cur, page, perPage, category) {
   var u = BASE + "/coins/markets?vs_currency=" + q(cur) + "&order=market_cap_desc&per_page=" + perPage
     + "&page=" + page + "&sparkline=true&price_change_percentage=1h%2C24h%2C7d"
   if (category) u += "&category=" + q(category)
   return u
 }
 
-function idsUrl(cur, ids) {
+export function idsUrl(cur, ids) {
   var clean = []
   for (var i = 0; i < ids.length; i++) if (safeId(ids[i])) clean.push(ids[i])
   clean.sort()   // one cache entry whatever order the list was starred in
@@ -67,29 +66,29 @@ function idsUrl(cur, ids) {
     + "&per_page=250&page=1&sparkline=true&price_change_percentage=1h%2C24h%2C7d"
 }
 
-function globalUrl() { return BASE + "/global" }
-function trendingUrl() { return BASE + "/search/trending" }
-function categoriesUrl() { return BASE + "/coins/categories?order=market_cap_desc" }
-function searchUrl(query) { return BASE + "/search?query=" + q(query) }
+export function globalUrl() { return BASE + "/global" }
+export function trendingUrl() { return BASE + "/search/trending" }
+export function categoriesUrl() { return BASE + "/coins/categories?order=market_cap_desc" }
+export function searchUrl(query) { return BASE + "/search?query=" + q(query) }
 
-function coinUrl(id) {
+export function coinUrl(id) {
   return BASE + "/coins/" + safeId(id) + "?localization=false&tickers=false&market_data=true"
     + "&community_data=false&developer_data=false&sparkline=false"
 }
 
-function chartUrl(id, cur, days) {
+export function chartUrl(id, cur, days) {
   return BASE + "/coins/" + safeId(id) + "/market_chart?vs_currency=" + q(cur) + "&days=" + q(days)
 }
 
 // ------------------------------------------------------------ shaping
 
-function num(v) {
+export function num(v) {
   if (v === null || v === undefined || v === "") return NaN
   var n = Number(v)
   return isFinite(n) ? n : NaN
 }
 
-function str(v, max) {
+export function str(v, max) {
   if (v === null || v === undefined) return ""
   var s = String(v).replace(/[\u0000-\u001f\u007f]/g, " ")
   return s.length > max ? s.slice(0, max) : s
@@ -97,19 +96,19 @@ function str(v, max) {
 
 // Only https pictures and pages. A logo URL is loaded by an Image, a link is
 // handed to the browser; neither gets anything else.
-function httpsUrl(v) {
+export function httpsUrl(v) {
   var s = str(v, 400).trim()
   return /^https:\/\/[^\s"'<>]+$/i.test(s) ? s : ""
 }
 
 // Lists want the 50 px logo, not the 250 px one: a hundred rows of it.
-function smallImage(v) {
+export function smallImage(v) {
   return httpsUrl(v).replace("/large/", "/small/")
 }
 
 // 168 hourly points is more than 120 px of sparkline can show; a quarter of
 // them draws the same line for a quarter of the Canvas work per row.
-function thin(points, target) {
+export function thin(points, target) {
   if (!points || !points.length) return []
   var out = []
   var step = Math.max(1, Math.floor(points.length / target))
@@ -122,7 +121,7 @@ function thin(points, target) {
   return out
 }
 
-function marketRow(c) {
+export function marketRow(c) {
   if (!c || !safeId(c.id)) return null
   var spark = c.sparkline_in_7d ? c.sparkline_in_7d.price : null
   return {
@@ -154,7 +153,7 @@ function marketRow(c) {
   }
 }
 
-function markets(json) {
+export function markets(json) {
   var out = []
   if (!Array.isArray(json)) return out
   for (var i = 0; i < json.length && i < 250; i++) {
@@ -164,7 +163,7 @@ function markets(json) {
   return out
 }
 
-function globalStats(json) {
+export function globalStats(json) {
   var d = json && json.data ? json.data : {}
   var mc = d.total_market_cap || {}
   var tv = d.total_volume || {}
@@ -184,7 +183,7 @@ function globalStats(json) {
   }
 }
 
-function trending(json) {
+export function trending(json) {
   var out = []
   var coins = json && Array.isArray(json.coins) ? json.coins : []
   for (var i = 0; i < coins.length && i < 30; i++) {
@@ -202,7 +201,7 @@ function trending(json) {
   return out
 }
 
-function categories(json) {
+export function categories(json) {
   var out = []
   if (!Array.isArray(json)) return out
   for (var i = 0; i < json.length && i < 400; i++) {
@@ -226,7 +225,7 @@ function categories(json) {
   return out
 }
 
-function search(json) {
+export function search(json) {
   var out = []
   var coins = json && Array.isArray(json.coins) ? json.coins : []
   for (var i = 0; i < coins.length && i < 40; i++) {
@@ -237,7 +236,8 @@ function search(json) {
       name: str(c.name, 64),
       symbol: str(c.symbol, 16).toUpperCase(),
       rank: num(c.market_cap_rank),
-      image: httpsUrl(c.large || c.thumb)
+      // `large` is 250 px; its /small/ sibling is what a 30 px row needs.
+      image: smallImage(c.large || c.thumb)
     })
   }
   return out
@@ -245,7 +245,7 @@ function search(json) {
 
 // Coin descriptions are HTML written by projects. Shown as plain text, so tags
 // are dropped and the handful of entities that actually occur are decoded.
-function plainText(html, max) {
+export function plainText(html, max) {
   var s = str(html, 20000)
   s = s.replace(/<br\s*\/?>/gi, "\n").replace(/<\/p>/gi, "\n\n").replace(/<[^>]*>/g, "")
   s = s.replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
@@ -257,11 +257,11 @@ function plainText(html, max) {
   return s.length > max ? s.slice(0, max).replace(/\s+\S*$/, "") + "…" : s
 }
 
-function pick(obj, cur) {
+export function pick(obj, cur) {
   return obj && typeof obj === "object" ? num(obj[cur]) : NaN
 }
 
-function coin(json, cur) {
+export function coin(json, cur) {
   if (!json || !safeId(json.id)) return null
   var m = json.market_data || {}
   var links = json.links || {}
@@ -286,7 +286,7 @@ function coin(json, cur) {
     id: json.id,
     name: str(json.name, 64),
     symbol: str(json.symbol, 16).toUpperCase(),
-    image: httpsUrl(image.large || image.small),
+    image: httpsUrl(image.small || image.large),
     rank: num(json.market_cap_rank),
     price: pick(m.current_price, cur),
     mcap: pick(m.market_cap, cur),
@@ -323,7 +323,7 @@ function coin(json, cur) {
 
 // A year of daily points or a day of five-minute ones: about 300 either way,
 // which is more than a chart this wide has pixels for.
-function chart(json) {
+export function chart(json) {
   var raw = json && Array.isArray(json.prices) ? json.prices : []
   var step = Math.max(1, Math.floor(raw.length / 360))
   var out = []
@@ -339,7 +339,7 @@ function chart(json) {
   return out
 }
 
-function shape(kind, json, cur) {
+export function shape(kind, json, cur) {
   switch (kind) {
   case "markets": return markets(json)
   case "global": return globalStats(json)
@@ -354,9 +354,9 @@ function shape(kind, json, cur) {
 
 // ------------------------------------------------------------ formatting
 
-var DASH = "—"
+export var DASH = "—"
 
-function group(s) {
+export function group(s) {
   var parts = s.split(".")
   parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",")
   return parts.join(".")
@@ -365,14 +365,14 @@ function group(s) {
 // Decimals follow the size of the number the way CoinGecko prints it: cents
 // for dollars, four places under a dollar, and four significant figures for
 // the coins that cost a millionth of a cent.
-function decimalsFor(a) {
+export function decimalsFor(a) {
   if (a === 0) return 2
   if (a >= 1) return 2
   if (a >= 0.01) return 4
   return Math.min(12, Math.ceil(-Math.log(a) / Math.LN10) + 3)
 }
 
-function plain(v, decimals) {
+export function plain(v, decimals) {
   if (isNaN(v)) return DASH
   var a = Math.abs(v)
   var d = decimals === undefined ? decimalsFor(a) : decimals
@@ -381,14 +381,14 @@ function plain(v, decimals) {
   return (v < 0 ? "-" : "") + s
 }
 
-function price(v, cur) {
+export function price(v, cur) {
   if (isNaN(v)) return DASH
   var c = currency(cur)
   if (c.code === "sats") return plain(v, v >= 100 ? 0 : 2) + " sats"
   return (v < 0 ? "-" : "") + c.symbol + plain(Math.abs(v))
 }
 
-function compact(v) {
+export function compact(v) {
   if (isNaN(v)) return DASH
   var a = Math.abs(v)
   var s
@@ -400,14 +400,14 @@ function compact(v) {
   return (v < 0 ? "-" : "") + s
 }
 
-function money(v, cur) {
+export function money(v, cur) {
   if (isNaN(v)) return DASH
   var c = currency(cur)
   if (c.code === "sats") return compact(v) + " sats"
   return (v < 0 ? "-" : "") + c.symbol + compact(Math.abs(v))
 }
 
-function percent(v, digits) {
+export function percent(v, digits) {
   if (isNaN(v)) return DASH
   var d = digits === undefined ? (Math.abs(v) >= 1000 ? 0 : 1) : digits
   var s = group(Math.abs(v).toFixed(d))
@@ -416,27 +416,27 @@ function percent(v, digits) {
 }
 
 // The size of a change without its sign, for places that draw the direction.
-function magnitude(v, digits) {
+export function magnitude(v, digits) {
   if (isNaN(v)) return DASH
   var a = Math.abs(v)
   var d = digits === undefined ? (a >= 1000 ? 0 : 1) : digits
   return group(a.toFixed(d)) + "%"
 }
 
-function supply(v, symbol) {
+export function supply(v, symbol) {
   if (isNaN(v) || v <= 0) return "∞"
   return compact(v) + (symbol ? " " + symbol : "")
 }
 
-var MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+export var MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
-function date(iso) {
+export function date(iso) {
   var d = new Date(iso)
   if (isNaN(d.getTime())) return DASH
   return MONTHS[d.getMonth()] + " " + d.getDate() + ", " + d.getFullYear()
 }
 
-function ago(iso) {
+export function ago(iso) {
   var d = new Date(iso)
   if (isNaN(d.getTime())) return ""
   var days = Math.floor((Date.now() - d.getTime()) / 86400000)
@@ -447,7 +447,7 @@ function ago(iso) {
 }
 
 // Chart axis and crosshair: the range decides the precision.
-function stamp(ms, days) {
+export function stamp(ms, days) {
   var d = new Date(ms)
   var hh = ("0" + d.getHours()).slice(-2) + ":" + ("0" + d.getMinutes()).slice(-2)
   if (days === "1") return hh
@@ -455,13 +455,13 @@ function stamp(ms, days) {
   return MONTHS[d.getMonth()] + " " + d.getDate() + ", " + d.getFullYear()
 }
 
-function isoDay(ms) {
+export function isoDay(ms) {
   var d = new Date(ms)
   return d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2)
 }
 
 // A number typed by a person: "1,234.5", "0,5" and " 2 " all mean something.
-function parseAmount(text) {
+export function parseAmount(text) {
   var s = String(text || "").trim().replace(/\s/g, "")
   if (!s) return NaN
   if (s.indexOf(",") >= 0 && s.indexOf(".") < 0 && /,\d{1,2}$|,\d{4,}$/.test(s)) s = s.replace(",", ".")
@@ -470,7 +470,7 @@ function parseAmount(text) {
   return Number(s)
 }
 
-function editable(v) {
+export function editable(v) {
   if (isNaN(v)) return ""
   var d = decimalsFor(Math.abs(v))
   var s = Math.abs(v) >= 1 ? v.toFixed(2) : v.toFixed(Math.max(d, 4))
@@ -484,7 +484,7 @@ function editable(v) {
 // they were typed in; the ones in another currency still count toward the
 // amount held, but not toward cost, since yesterday's euros are not today's
 // dollars.
-function position(txs, cur) {
+export function position(txs, cur) {
   var qty = 0, boughtQty = 0, boughtCost = 0, realized = 0, foreign = 0
   var list = (txs || []).slice().sort(function (a, b) { return a.ts - b.ts })
   for (var i = 0; i < list.length; i++) {

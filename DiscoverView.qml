@@ -1,5 +1,5 @@
 import QtQuick
-import "Api.js" as Api
+import "Api.mjs" as Api
 
 // What is moving: trending searches, the day's biggest gainers and losers
 // among the top 250, and every category by market cap.

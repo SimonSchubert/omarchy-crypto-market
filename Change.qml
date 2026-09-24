@@ -1,5 +1,5 @@
 import QtQuick
-import "Api.js" as Api
+import "Api.mjs" as Api
 
 // A percentage in the colour of its direction, with an arrow for anyone who
 // cannot tell the two colours apart.
