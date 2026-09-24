@@ -51,6 +51,28 @@ anywhere.
 
 On Omarchy Mobile it appears in the app drawer as its own app.
 
+## Remove
+
+```sh
+omarchy plugin remove io.github.simonschubert.crypto-market
+```
+
+That removes the plugin itself. Your settings, watchlist and portfolio stay in
+`~/.local/state/crypto-market/`, and the saved prices and logos stay in
+`~/.cache/crypto-market/`. To remove those as well:
+
+```sh
+rm -rf ~/.local/state/crypto-market ~/.cache/crypto-market
+```
+
+If you added a keybinding, remove it from `~/.config/hypr/bindings.lua`.
+
+## Requirements
+
+Omarchy with its Quickshell shell, and network access to `api.coingecko.com`.
+It installs no packages, runs no helper processes, and changes no Omarchy
+configuration: it only reads and writes its own files, listed below.
+
 ## Keys (desktop)
 
 | Key | Action |
