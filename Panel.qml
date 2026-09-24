@@ -205,6 +205,16 @@ Item {
 
   function toggle() { opened ? close() : open("") }
 
+  // Closing from inside -- the close button, a click outside, Escape -- goes
+  // through the host. Dropping `opened` alone leaves the host counting the
+  // panel open, and the next `shell toggle` (the keybinding) would "hide" it
+  // and show nothing. The host's hide() calls close() in turn.
+  function dismiss() {
+    var id = manifest && manifest.id ? manifest.id : "io.github.simonschubert.crypto-market"
+    if (shell && typeof shell.hide === "function") shell.hide(id)
+    else close()
+  }
+
   // ------------------------------------------------------------ plumbing
 
   Store {
@@ -273,7 +283,7 @@ Item {
         MouseArea {
           anchors.fill: parent
           enabled: !root.compact
-          onClicked: root.close()
+          onClicked: root.dismiss()
         }
       }
 
@@ -305,7 +315,7 @@ Item {
             var list = v && v.list ? v.list : null
             var detail = detailLoader.item
             var k = event.key
-            if (k === Qt.Key_Escape || k === Qt.Key_Back) { if (!root.back()) root.close(); event.accepted = true; return }
+            if (k === Qt.Key_Escape || k === Qt.Key_Back) { if (!root.back()) root.dismiss(); event.accepted = true; return }
             if (root.txOpen) return
             if (k === Qt.Key_Down && list) { event.accepted = list.move(1); return }
             if (k === Qt.Key_Up && list) { event.accepted = list.move(-1); return }
@@ -460,7 +470,7 @@ Item {
                   app: root
                   glyph: "󰁍"
                   label: "Back"
-                  onClicked: if (!root.back()) root.close()
+                  onClicked: if (!root.back()) root.dismiss()
                 }
                 Text {
                   anchors.left: headerBack.visible ? headerBack.right : parent.left
@@ -660,7 +670,7 @@ Item {
           app: root
           glyph: "󰅖"
           label: "Close"
-          onClicked: root.close()
+          onClicked: root.dismiss()
         }
 
         // The card's outline, drawn over its content so nothing inside paints
