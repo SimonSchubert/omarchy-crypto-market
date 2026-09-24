@@ -11,8 +11,9 @@ Item {
   readonly property var rows: { app.gecko.revision; return url ? (app.gecko.peek(url) || []) : [] }
   readonly property bool loading: { app.gecko.revision; return app.gecko.busy(url) }
   readonly property string error: { app.gecko.revision; return app.gecko.error(url) }
-  readonly property int ups: rows.filter(function (r) { return r.ch24 > 0 }).length
-  readonly property int downs: rows.filter(function (r) { return r.ch24 < 0 }).length
+  // Counted the way the badges print them: +0.0% is neither.
+  readonly property int ups: rows.filter(function (r) { return r.ch24 >= 0.05 }).length
+  readonly property int downs: rows.filter(function (r) { return r.ch24 <= -0.05 }).length
 
   // Rows follow the order the coins were starred in unless a column is sorted.
   readonly property var ordered: {

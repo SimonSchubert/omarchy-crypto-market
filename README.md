@@ -3,7 +3,9 @@
 CoinGecko as an Omarchy app: live prices, coin pages, a watchlist and a
 portfolio, in one panel that lays itself out for the desktop and for the phone.
 
-![Crypto Market](preview.png)
+![Crypto Market on the desktop](preview.png)
+
+<img src="preview-phone.png" alt="Crypto Market on a phone" width="300">
 
 ## What it does
 
