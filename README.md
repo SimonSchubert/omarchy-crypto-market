@@ -76,8 +76,8 @@ If you added a keybinding, remove it from `~/.config/hypr/bindings.lua`.
 ## Requirements
 
 Omarchy with its Quickshell shell, and network access to `api.coingecko.com`.
-It installs no packages, runs no helper processes, and changes no Omarchy
-configuration. It reads and writes only its own files, listed below.
+It installs no packages and changes no Omarchy configuration. It reads and
+writes only its own files, listed below.
 
 ## Keys (desktop)
 
@@ -106,8 +106,13 @@ and paste it into Settings. The key is stored in
 
 - The only network access is HTTPS requests from QML to `api.coingecko.com`,
   plus coin logos from CoinGecko's image CDN.
-- It runs no processes and no shell commands. It writes only these files:
-  - `~/.local/state/crypto-market/prefs.json`: settings, watchlist and portfolio
+- It runs no shell commands. At startup it runs `install -d -m 700` on its
+  own state and cache folders, and `chmod 600` on its two data files, so
+  your API key and portfolio are readable only by you. It runs no other
+  processes.
+- It writes only these files:
+  - `~/.local/state/crypto-market/prefs.json`: settings, watchlist, portfolio
+    and the optional API key
   - `~/.cache/crypto-market/`: the last prices, for opening offline, and the
     coin logos
   - `~/.local/share/applications/omarchy-plugin-io.github.simonschubert.crypto-market.desktop`:

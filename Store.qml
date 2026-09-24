@@ -83,6 +83,7 @@ Item {
   }
 
   function saveSnapshot(entries) {
+    if (!secured) return
     try { snapshotFile.setText(JSON.stringify({ version: 1, entries: entries })) } catch (e) {}
   }
 
@@ -91,7 +92,48 @@ Item {
   Timer {
     id: saveTimer
     interval: 400
-    onTriggered: if (root.ready) stateFile.setText(JSON.stringify(root.prefs, null, 1))
+    onTriggered: {
+      if (!root.ready || !root.secured) { restart(); return }
+      stateFile.setText(JSON.stringify(root.prefs, null, 1))
+    }
+  }
+
+  // prefs.json holds the API key and the portfolio. FileView has no say in
+  // permissions: it creates a missing directory 0755 and a file 0644, which
+  // any other account on the machine can read. So before the first write,
+  // both folders are made private -- created 0700, as the XDG spec asks, or
+  // tightened if an older version left them open -- and the files 0600;
+  // later atomic saves keep the mode of the file they replace. Nothing is
+  // written until this has run. No shell: argument lists, fixed paths.
+  property bool secured: false
+  property int lockStep: 0
+
+  Process {
+    id: lock
+    command: root.lockStep === 0
+      ? ["install", "-d", "-m", "700", root.stateDir, root.cacheDir]
+      : ["chmod", "600", root.stateDir + "/prefs.json", root.cacheDir + "/snapshot.json"]
+    onExited: {
+      if (root.lockStep === 0) {
+        root.lockStep = 1
+        Qt.callLater(function () { lock.running = true })
+      } else {
+        root.secured = true
+      }
+    }
+  }
+
+  Component.onCompleted: if (home) lock.running = true
+
+  // A file that did not exist yet when the chmod ran is created 0644; the
+  // first save of each file in a session runs the chmod once more.
+  property var chmodded: ({})
+  function lockAfterSave(name) {
+    if (chmodded[name]) return
+    chmodded[name] = true
+    if (lock.running) { Qt.callLater(function () { root.chmodded[name] = false; root.lockAfterSave(name) }); return }
+    lockStep = 1
+    lock.running = true
   }
 
   FileView {
@@ -107,6 +149,7 @@ Item {
       root.ready = true
     }
     onLoadFailed: root.ready = true
+    onSaved: root.lockAfterSave("prefs")
   }
 
   FileView {
@@ -115,5 +158,6 @@ Item {
     atomicWrites: true
     printErrors: false
     onLoaded: root.snapshotLoaded(text())
+    onSaved: root.lockAfterSave("snapshot")
   }
 }
