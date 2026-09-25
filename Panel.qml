@@ -521,17 +521,22 @@ Item {
                 id: banner
                 anchors.top: header.bottom
                 width: parent.width
-                height: visible ? 30 : 0
-                visible: gecko.banner !== ""
-                color: gecko.waitSeconds > 0 ? root.alpha(root.ui.star, 0.18) : root.ui.surfaceHigh
+                // A file problem outranks a network one: it loses data.
+                readonly property string message: store.warning || gecko.banner
+                height: visible ? (store.warning ? 44 : 30) : 0
+                visible: message !== ""
+                color: store.warning ? root.alpha(root.ui.down, 0.2)
+                  : gecko.waitSeconds > 0 ? root.alpha(root.ui.star, 0.18) : root.ui.surfaceHigh
                 Text {
                   anchors.centerIn: parent
                   width: parent.width - 24
                   horizontalAlignment: Text.AlignHCenter
-                  text: gecko.banner
+                  text: banner.message
                   color: root.ui.text
                   font.family: root.ui.font
                   font.pixelSize: root.ui.fs.xs
+                  wrapMode: Text.Wrap
+                  maximumLineCount: 2
                   elide: Text.ElideRight
                 }
               }

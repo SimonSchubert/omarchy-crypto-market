@@ -93,52 +93,116 @@ Item {
     id: saveTimer
     interval: 400
     onTriggered: {
-      if (!root.ready || !root.secured) { restart(); return }
+      if (!root.ready) { restart(); return }
+      // Not yet private: try again shortly. Failed: changes stay in memory.
+      if (!root.secured) { if (!root.warning) restart(); return }
       stateFile.setText(JSON.stringify(root.prefs, null, 1))
     }
   }
 
-  // prefs.json holds the API key and the portfolio. FileView has no say in
-  // permissions: it creates a missing directory 0755 and a file 0644, which
-  // any other account on the machine can read. So before the first write,
-  // both folders are made private -- created 0700, as the XDG spec asks, or
-  // tightened if an older version left them open -- and the files 0600;
-  // later atomic saves keep the mode of the file they replace. Nothing is
-  // written until this has run. No shell: argument lists, fixed paths.
+  // ------------------------------------------------------------ privacy
+  //
+  // prefs.json holds the API key and the portfolio, and the snapshot names
+  // the coins in it. FileView has no say in permissions: it creates a missing
+  // directory 0755 and a file 0644, which any other account can read. So
+  // nothing is written until both folders have been made private -- created
+  // 0700, as the XDG spec asks, or tightened if an older version left them
+  // open -- and the files that already exist are 0600. A file created later
+  // is made 0600 right after its first save; atomic saves then keep the mode.
+  //
+  // It fails closed. Every command must exit 0. If one does not, or they
+  // cannot run at all, saving stops for the session, what was changed stays
+  // in memory, and `warning` says so on screen. No shell: argument lists
+  // with fixed paths.
   property bool secured: false
-  property int lockStep: 0
+  property string warning: ""
+  property bool dirsPrivate: false
+  property bool prefsChecked: false
+  property bool prefsExists: false
+  property bool snapshotChecked: false
+  property bool snapshotExists: false
+  property var madePrivate: ({})   // file -> true once chmod 600 succeeded
 
-  Process {
-    id: lock
-    command: root.lockStep === 0
-      ? ["install", "-d", "-m", "700", root.stateDir, root.cacheDir]
-      : ["chmod", "600", root.stateDir + "/prefs.json", root.cacheDir + "/snapshot.json"]
-    onExited: {
-      if (root.lockStep === 0) {
-        root.lockStep = 1
-        Qt.callLater(function () { lock.running = true })
-      } else {
-        root.secured = true
-      }
-    }
+  readonly property string prefsPath: stateDir + "/prefs.json"
+  readonly property string snapshotPath: cacheDir + "/snapshot.json"
+
+  function fail(why) {
+    secured = false
+    warning = why + " Nothing is being saved."
   }
 
-  Component.onCompleted: if (home) lock.running = true
+  property var jobs: []
+  property var job: null
 
-  // A file that did not exist yet when the chmod ran is created 0644; the
-  // first save of each file in a session runs the chmod once more.
-  property var chmodded: ({})
-  function lockAfterSave(name) {
-    if (chmodded[name]) return
-    chmodded[name] = true
-    if (lock.running) { Qt.callLater(function () { root.chmodded[name] = false; root.lockAfterSave(name) }); return }
-    lockStep = 1
+  function run(args, onOk) {
+    jobs.push({ args: args, onOk: onOk })
+    next()
+  }
+
+  function next() {
+    if (job || !jobs.length) return
+    job = jobs.shift()
+    lock.command = job.args
+    watchdog.restart()
     lock.running = true
   }
 
+  Process {
+    id: lock
+    onExited: function (exitCode, exitStatus) {
+      watchdog.stop()
+      var j = root.job
+      root.job = null
+      if (!j) return
+      if (exitCode === 0 && exitStatus === 0) j.onOk()
+      else root.fail("Couldn't make Crypto Market's files private (" + j.args[0] + " failed).")
+      root.next()
+    }
+  }
+
+  // A command that never ran, or never came back, counts as failed.
+  Timer {
+    id: watchdog
+    interval: 10000
+    onTriggered: {
+      root.job = null
+      root.jobs = []
+      root.fail("Couldn't check that Crypto Market's files are private.")
+    }
+  }
+
+  function secure() {
+    if (!home) { fail("No home directory."); return }
+    run(["install", "-d", "-m", "700", stateDir, cacheDir], function () {
+      root.dirsPrivate = true
+      root.lockExisting()
+    })
+  }
+
+  // Once the folders are private and both files have been looked for.
+  function lockExisting() {
+    if (!dirsPrivate || !prefsChecked || !snapshotChecked || secured || warning) return
+    var files = []
+    if (prefsExists) files.push(prefsPath)
+    if (snapshotExists) files.push(snapshotPath)
+    if (!files.length) { secured = true; return }
+    run(["chmod", "600"].concat(files), function () {
+      for (var i = 0; i < files.length; i++) root.madePrivate[files[i]] = true
+      root.secured = true
+    })
+  }
+
+  function lockAfterSave(file) {
+    if (madePrivate[file]) return
+    madePrivate[file] = true
+    run(["chmod", "600", file], function () {})
+  }
+
+  Component.onCompleted: secure()
+
   FileView {
     id: stateFile
-    path: root.stateDir + "/prefs.json"
+    path: root.prefsPath
     atomicWrites: true
     printErrors: false
     onLoaded: {
@@ -146,18 +210,34 @@ Item {
         var s = JSON.parse(text())
         if (s && typeof s === "object" && s.version === 1) root.prefs = Object.assign({}, root.defaults, s)
       } catch (e) {}
+      root.prefsExists = true
+      root.prefsChecked = true
       root.ready = true
+      root.lockExisting()
     }
-    onLoadFailed: root.ready = true
-    onSaved: root.lockAfterSave("prefs")
+    onLoadFailed: {
+      root.prefsChecked = true
+      root.ready = true
+      root.lockExisting()
+    }
+    onSaved: root.lockAfterSave(root.prefsPath)
   }
 
   FileView {
     id: snapshotFile
-    path: root.cacheDir + "/snapshot.json"
+    path: root.snapshotPath
     atomicWrites: true
     printErrors: false
-    onLoaded: root.snapshotLoaded(text())
-    onSaved: root.lockAfterSave("snapshot")
+    onLoaded: {
+      root.snapshotExists = true
+      root.snapshotChecked = true
+      root.snapshotLoaded(text())
+      root.lockExisting()
+    }
+    onLoadFailed: {
+      root.snapshotChecked = true
+      root.lockExisting()
+    }
+    onSaved: root.lockAfterSave(root.snapshotPath)
   }
 }

@@ -109,7 +109,7 @@ and paste it into Settings. The key is stored in
 - It runs no shell commands. At startup it runs `install -d -m 700` on its
   own state and cache folders, and `chmod 600` on its two data files, so
   your API key and portfolio are readable only by you. It runs no other
-  processes.
+  processes. If either step fails, it saves nothing and says so on screen.
 - It writes only these files:
   - `~/.local/state/crypto-market/prefs.json`: settings, watchlist, portfolio
     and the optional API key
