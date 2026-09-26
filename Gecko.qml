@@ -155,11 +155,48 @@ Item {
 
   // The app's only HTTP request, for the API and for logos alike. `binary`
   // answers with an ArrayBuffer instead of text. done(status, body, req).
-  function get(url, headers, binary, done) {
+  // How much of an answer is ever held. The largest real ones -- a coin's
+  // whole price history, 250 coins with sparklines -- are about 1 MB of JSON;
+  // a logo is 1 to 20 KB.
+  readonly property int maxJson: 8 * 1024 * 1024
+  readonly property int maxImage: 300 * 1024
+
+  // The app's only HTTP request, for the API and for logos alike. `binary`
+  // answers with an ArrayBuffer instead of text. done(status, body, req);
+  // status -1 when the answer outgrew `limit`.
+  //
+  // The limit holds while the answer arrives, not after: a Content-Length
+  // over it stops the request before the body, and Qt reports every received
+  // chunk as a LOADING state change, so a body that passes it is dropped
+  // there. The abort itself waits one turn of the event loop: abort() from
+  // inside Qt's HEADERS_RECEIVED notification crashes the whole shell
+  // (SIGSEGV, reproduced on quickshell 0.3.1 / Qt 6.11).
+  function get(url, headers, binary, done, limit) {
     var req = new XMLHttpRequest()
+    var settled = false
+    var give = function (status, data) {
+      if (settled) return
+      settled = true
+      done(status, data, req)
+    }
+    var tooBig = function () {
+      give(-1, null)
+      Qt.callLater(function () { req.abort() })
+    }
     if (binary) req.responseType = "arraybuffer"
     req.onreadystatechange = function () {
-      if (req.readyState === 4) done(req.status, binary ? req.response : req.responseText, req)
+      if (settled) return
+      if (req.readyState === 2) {
+        var declared = parseInt(req.getResponseHeader("content-length"), 10)
+        if (isFinite(declared) && declared > limit) tooBig()
+      } else if (req.readyState === 3) {
+        var size = binary ? (req.response ? req.response.byteLength : 0) : req.responseText.length
+        if (size > limit) tooBig()
+      } else if (req.readyState === 4) {
+        var data = binary ? req.response : req.responseText
+        if (data && (binary ? data.byteLength : data.length) > limit) tooBig()
+        else give(req.status, data)
+      }
     }
     req.open("GET", url)
     for (var h in headers) req.setRequestHeader(h, headers[h])
@@ -177,8 +214,8 @@ Item {
       if (xhr !== r) return
       timeout.stop()
       xhr = null
-      finish(job, status, body, r.getResponseHeader("retry-after"))
-    })
+      finish(job, status, body, status > 0 ? r.getResponseHeader("retry-after") : "")
+    }, maxJson)
     xhr = req
     timeout.restart()
   }
@@ -199,6 +236,8 @@ Item {
       var back = queue.slice()
       back.unshift(job)
       queue = back
+    } else if (status === -1) {
+      fail(job, "CoinGecko's answer was too large to use")
     } else if (status === 0) {
       offline = true
       fail(job, "Can't reach CoinGecko")

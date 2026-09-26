@@ -1,6 +1,7 @@
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import "Api.mjs" as Api
 
 // Coin logos on disk, so a logo is downloaded once rather than once per
 // shell start: Qt keeps network images in memory only.
@@ -52,7 +53,9 @@ Item {
     if (!url || !loaded) return ""
     var slot = index.urls[url]
     if (slot !== undefined) return "file://" + fileOf(slot, index.gen[slot] || 0, url)
-    if (failed[url]) return url   // the network, as a last resort
+    // A logo that could not be cached is not loaded some other way: an
+    // Image would fetch it with no size limit. The initials stand in.
+    if (failed[url]) return ""
     fetch(url)
     return ""
   }
@@ -70,6 +73,7 @@ Item {
   }
 
   function fetch(url) {
+    if (!Api.imageUrl(url)) { failed[url] = true; return }
     if (active[url] || queue.indexOf(url) >= 0) return
     // Newest first: the logos of the rows on screen now, not of a list
     // scrolled past a second ago.
@@ -93,14 +97,14 @@ Item {
       delete a[url]
       root.activeCount--
       // An image, and a small one: nothing else goes to disk.
-      var type = String(r.getResponseHeader("content-type") || "")
-      if (status === 200 && body && body.byteLength > 0 && body.byteLength < 300000 && /^image\//.test(type))
+      var type = status > 0 ? String(r.getResponseHeader("content-type") || "") : ""
+      if (status === 200 && body && body.byteLength > 0 && /^image\//.test(type))
         root.store(url, body)
       else
         root.failed[url] = true
       root.revision++
       Qt.callLater(root.pump)
-    })
+    }, app.gecko.maxImage)
     active[url] = { req: req, t: Date.now() }
     activeCount++
   }

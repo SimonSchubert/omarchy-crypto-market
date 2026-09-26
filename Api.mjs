@@ -101,9 +101,16 @@ export function httpsUrl(v) {
   return /^https:\/\/[^\s"'<>]+$/i.test(s) ? s : ""
 }
 
+// A picture only from CoinGecko's own image hosts. Project-supplied data
+// never picks the server a logo is downloaded from.
+export function imageUrl(v) {
+  var u = httpsUrl(v)
+  return /^https:\/\/(coin-images|assets)\.coingecko\.com\//.test(u) ? u : ""
+}
+
 // Lists want the 50 px logo, not the 250 px one: a hundred rows of it.
 export function smallImage(v) {
-  return httpsUrl(v).replace("/large/", "/small/")
+  return imageUrl(v).replace("/large/", "/small/")
 }
 
 // 168 hourly points is more than 120 px of sparkline can show; a quarter of
@@ -194,7 +201,7 @@ export function trending(json) {
       name: str(it.name, 64),
       symbol: str(it.symbol, 16).toUpperCase(),
       rank: num(it.market_cap_rank),
-      image: httpsUrl(it.small || it.thumb),
+      image: imageUrl(it.small || it.thumb),
       score: num(it.score)
     })
   }
@@ -210,7 +217,7 @@ export function categories(json) {
     var logos = []
     var top = Array.isArray(c.top_3_coins) ? c.top_3_coins : []
     for (var j = 0; j < top.length && j < 3; j++) {
-      var u = httpsUrl(top[j])
+      var u = imageUrl(top[j])
       if (u) logos.push(u)
     }
     out.push({
@@ -286,7 +293,7 @@ export function coin(json, cur) {
     id: json.id,
     name: str(json.name, 64),
     symbol: str(json.symbol, 16).toUpperCase(),
-    image: httpsUrl(image.small || image.large),
+    image: imageUrl(image.small || image.large),
     rank: num(json.market_cap_rank),
     price: pick(m.current_price, cur),
     mcap: pick(m.market_cap, cur),

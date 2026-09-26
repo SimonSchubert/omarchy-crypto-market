@@ -1,7 +1,7 @@
 # Crypto Market
 
 CoinGecko as an Omarchy app: live prices, coin pages, a watchlist and a
-portfolio, in one panel that lays itself out for the desktop and for the phone.
+portfolio, in an app window that lays itself out for the desktop and for the phone.
 
 ![Crypto Market on the desktop](preview.png)
 
@@ -55,6 +55,16 @@ that name exists yet. **Settings → App launcher** hides or shows the entry.
 
 On Omarchy Mobile it appears in the app drawer as its own app.
 
+## Update
+
+```sh
+omarchy plugin update io.github.simonschubert.crypto-market
+omarchy-restart-shell
+```
+
+The restart matters: Crypto Market stays loaded between opens, and Omarchy
+keeps a loaded plugin's old code running until the shell restarts.
+
 ## Remove
 
 ```sh
@@ -81,6 +91,9 @@ writes only its own files, listed below.
 
 ## Keys (desktop)
 
+Crypto Market opens as a normal window, so Hyprland tiles, focuses and closes
+it like any other app. The keybinding above toggles it.
+
 | Key | Action |
 | --- | --- |
 | `1`–`4` | Markets, Watchlist, Discover, Portfolio |
@@ -89,7 +102,7 @@ writes only its own files, listed below.
 | `←` `→` | Chart range on a coin page |
 | `f` | Star or unstar the selected coin |
 | `r` | Refresh |
-| `Esc` | Back, then close |
+| `Esc` | Back one step (close the window with your usual close key) |
 
 ## Rate limits and the API key
 
@@ -105,7 +118,11 @@ and paste it into Settings. The key is stored in
 ## Privacy and security
 
 - The only network access is HTTPS requests from QML to `api.coingecko.com`,
-  plus coin logos from CoinGecko's image CDN.
+  plus coin logos from CoinGecko's own image hosts (`coin-images.coingecko.com`,
+  `assets.coingecko.com`); a logo address anywhere else is ignored.
+- Every answer is capped while it downloads: 8 MB for API answers, 300 KB for
+  a logo. An answer that declares more, or grows past that, is dropped before
+  it is held in full.
 - It runs no shell commands. At startup it runs `install -d -m 700` on its
   own state and cache folders, and `chmod 600` on its two data files, so
   your API key and portfolio are readable only by you. It runs no other

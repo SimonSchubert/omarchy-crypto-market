@@ -1,20 +1,19 @@
 import QtQuick
 import Quickshell
-import Quickshell.Wayland
 import qs.Commons
 import "Api.mjs" as Api
 
 // Crypto Market: CoinGecko's markets, coin pages, watchlist and a portfolio,
-// as one panel.
+// as an app.
 //
 //     omarchy-shell shell toggle io.github.simonschubert.crypto-market
 //
-// One layer, sized from whatever it is drawn into. On a desktop that is the
-// screen: a card in the middle with a rail of sections on its left, and the
-// coin page beside the list when there is room. On a phone the panel is moved
-// into an app window a few hundred pixels wide, and the same tree lays itself
-// out as a phone app: full bleed, tabs at the bottom, pages that stack, and
-// Escape (the phone's back) stepping out one level at a time.
+// An ordinary window, tiled, focused and closed like any other app, and laid
+// out from its own size: a rail of sections on the left, with the coin page
+// beside the list when there is room, and a phone app -- tabs at the bottom,
+// pages that stack -- when it is narrow, as on Omarchy Mobile, where the
+// window is the whole screen. Escape (the phone's back) steps out one level
+// at a time.
 Item {
   id: root
 
@@ -192,14 +191,21 @@ Item {
 
   function open(payloadJson) {
     opened = true
+    window.visible = true
     var p = null
     try { p = typeof payloadJson === "string" && payloadJson ? JSON.parse(payloadJson) : payloadJson } catch (e) { p = null }
     if (p && Api.safeId(p.coin)) openCoin({ id: p.coin })
     Qt.callLater(function () { keys.forceActiveFocus(); root.refresh(false) })
   }
 
+  // From the host (`shell hide`, the keybinding). The window goes without
+  // telling the host back: it already knows.
+  property bool closingFromHost: false
   function close() {
     txOpen = false
+    closingFromHost = true
+    window.visible = false
+    closingFromHost = false
     opened = false
   }
 
@@ -266,46 +272,32 @@ Item {
 
   // ------------------------------------------------------------ window
 
-  PanelWindow {
+  // Shown and hidden by open() and close(), not bound to `opened`: the window
+  // manager closes it too, and a binding would fight that.
+  FloatingWindow {
     id: window
-    visible: root.opened
-    color: "transparent"
-    exclusionMode: ExclusionMode.Ignore
-    WlrLayershell.namespace: "omarchy-crypto-market"
-    WlrLayershell.layer: WlrLayer.Overlay
-    WlrLayershell.keyboardFocus: root.opened ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
-    anchors { top: true; bottom: true; left: true; right: true }
+    visible: false
+    title: "Crypto Market"
+    color: root.ui.bg
+    implicitWidth: 1280
+    implicitHeight: 820
+    minimumSize: Qt.size(360, 480)
+
+    // Closed from outside -- the close key, the window manager: tell the
+    // host, so its idea of what is open stays true and the next `shell
+    // toggle` opens it again rather than "closing" it.
+    onVisibleChanged: if (!visible && !root.closingFromHost && root.opened) root.dismiss()
 
     Item {
       id: stage
       anchors.fill: parent
 
-      // Outside the card, on a desktop: dim, and a click closes. Never on a
-      // phone, where the card is the whole window and a full-surface
-      // MouseArea would eat the home gesture.
-      Rectangle {
-        anchors.fill: parent
-        visible: !root.compact
-        color: Color.menu.scrim
-        MouseArea {
-          anchors.fill: parent
-          enabled: !root.compact
-          onClicked: root.dismiss()
-        }
-      }
-
       Rectangle {
         id: card
-        anchors.centerIn: parent
-        width: root.compact ? parent.width : Math.min(parent.width - 80, 1360)
-        height: root.compact ? parent.height : Math.min(parent.height - 80, 880)
-        radius: root.compact ? 0 : root.ui.radius + 4
+        anchors.fill: parent
+        radius: 0
         color: root.ui.bg
-        border.width: root.compact ? 0 : 1
-        border.color: root.ui.border
         clip: true
-
-        MouseArea { anchors.fill: parent; enabled: !root.compact }
 
         // A plain Item and not a FocusScope: forceActiveFocus() on a scope
         // hands focus back to whatever inside it had it last -- the search
@@ -314,7 +306,6 @@ Item {
         Item {
           id: keys
           anchors.fill: parent
-          anchors.margins: card.border.width
           focus: true
 
           Keys.onPressed: function (event) {
@@ -322,7 +313,9 @@ Item {
             var list = v && v.list ? v.list : null
             var detail = detailLoader.item
             var k = event.key
-            if (k === Qt.Key_Escape || k === Qt.Key_Back) { if (!root.back()) root.dismiss(); event.accepted = true; return }
+            // One step back; at the top there is nothing to leave -- an app
+            // window is closed by the window manager, not by Escape.
+            if (k === Qt.Key_Escape || k === Qt.Key_Back) { root.back(); event.accepted = true; return }
             if (root.txOpen) return
             if (k === Qt.Key_Down && list) { event.accepted = list.move(1); return }
             if (k === Qt.Key_Up && list) { event.accepted = list.move(-1); return }
@@ -671,31 +664,6 @@ Item {
           }
         }
 
-        // Desktop: close the whole panel from the card's corner, above the
-        // coin pane that may sit there.
-        IconButton {
-          visible: !root.compact
-          z: 20
-          anchors.top: parent.top
-          anchors.right: parent.right
-          anchors.margins: 8
-          app: root
-          glyph: "󰅖"
-          label: "Close"
-          onClicked: root.dismiss()
-        }
-
-        // The card's outline, drawn over its content so nothing inside paints
-        // across it.
-        Rectangle {
-          visible: !root.compact
-          anchors.fill: parent
-          z: 30
-          color: "transparent"
-          radius: card.radius
-          border.width: 1
-          border.color: root.ui.border
-        }
       }
     }
   }

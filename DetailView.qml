@@ -60,20 +60,12 @@ Item {
     if (/^https:\/\//i.test(url)) Qt.openUrlExternally(url)
   }
 
-  // Opaque when the page covers the list: square on a phone, rounded where
-  // it meets the desktop card's right-hand corners. Beside the list it
-  // needs no ground of its own.
+  // Opaque when the page covers the list. Beside the list it needs no ground
+  // of its own.
   Rectangle {
     visible: !root.pane
     anchors.fill: parent
     color: root.app.ui.bg
-    radius: root.app.compact ? 0 : root.app.ui.radius + 4
-    Rectangle {
-      visible: !root.app.compact
-      width: parent.width / 2
-      height: parent.height
-      color: parent.color
-    }
   }
 
   // ---------------------------------------------------------------- top bar
@@ -127,8 +119,7 @@ Item {
     Row {
       id: actions
       anchors.right: parent.right
-      // On a desktop the card's own close button sits in this corner.
-      anchors.rightMargin: root.app.compact ? 4 : 52
+      anchors.rightMargin: 4
       anchors.verticalCenter: parent.verticalCenter
       IconButton {
         app: root.app
